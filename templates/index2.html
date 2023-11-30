@@ -1,0 +1,218 @@
+<!-- index2.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gender Recognition</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #container {
+            display: flex;
+            max-width: 800px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        #leftSection {
+            flex: 1;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center; /* Center text (e.g., for the timer) */
+        }
+
+        #rightSection {
+            flex: 1;
+            padding: 20px;
+        }
+
+        #startButton {
+            background: url('/images/voiceRecord.png') no-repeat;
+            background-size: cover;
+            width: 150px;
+            height: 150px;
+            border: none;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #timer {
+            margin-top: 10px;
+            font-size: 24px; /* Adjust the font size as needed */
+            text-align: center; /* Center the text */
+        }
+
+        #audioPlayer {
+            margin-top: 20px;
+        }
+
+        #result {
+            font-size: 16px;
+        }
+
+        #recordAgainButton {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .probabilityBar {
+            height: 30px;
+            margin-top: 10px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .maleBar {
+            height: 100%;
+            background-color: #3498db; /* Blue color for male */
+        }
+
+        .femaleBar {
+            height: 100%;
+            background-color: #e73c97; /* Pink color for female */
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="leftSection">
+            <h1>Gender Recognition</h1>
+            <button id="startButton" onclick="startRecording()"></button>
+            <div id="timer">0:00</div>
+            <audio id="audioPlayer" controls></audio>
+            <button id="recordAgainButton" onclick="recordAgain()" style="display: none;">Record Again</button>
+        </div>
+        <div id="rightSection">
+            <p id="result"></p>
+            <p>
+                Audio Classification is a machine learning task that involves identifying and tagging audio signals into different classes or categories. The goal of audio classification is to enable machines to automatically recognize and distinguish between different types of audio, such as music, speech, and environmental sounds.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let audioData;
+    
+        function recordAgain() {
+            location.reload();
+        }
+
+        function updateProbabilityBars(maleProbability, femaleProbability) {
+            const probabilityBars = document.getElementById('probabilityBars');
+
+            // Create a bar for male probability
+            const maleBar = document.createElement('div');
+            maleBar.className = 'probabilityBar';
+            maleBar.innerHTML = `<div class="maleBar" style="width: ${maleProbability}%"></div>`;
+
+            // Create a bar for female probability
+            const femaleBar = document.createElement('div');
+            femaleBar.className = 'probabilityBar';
+            femaleBar.innerHTML = `<div class="femaleBar" style="width: ${femaleProbability}%"></div>`;
+
+            // Append bars to the container
+            probabilityBars.innerHTML = '';
+            probabilityBars.appendChild(maleBar);
+            probabilityBars.appendChild(femaleBar);
+        }
+
+        function startRecording() {
+            const buttonElement = document.getElementById('startButton');
+            const timerElement = document.getElementById('timer');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const resultElement = document.getElementById('result');
+            const recordAgainButton = document.getElementById('recordAgainButton');
+            const rightSection = document.getElementById('rightSection');
+
+            buttonElement.style.backgroundImage = "url('/images/voiceRecording.png')";
+            buttonElement.disabled = true;  // Disable the button during recording
+
+            let startTime = new Date().getTime();
+
+            // Function to update the timer
+            function updateTimer() {
+                const currentTime = new Date().getTime();
+                const elapsedTime = Math.floor((currentTime - startTime) / 1000); // in seconds
+                const minutes = Math.floor(elapsedTime / 60);
+                const seconds = elapsedTime % 60;
+                timerElement.innerHTML = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            }
+
+            // Update the timer every second
+            const timerInterval = setInterval(updateTimer, 1000);
+
+             fetch('/start_recording', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    clearInterval(timerInterval);
+
+                    if (data.success) {
+                        // Set the audio source to the recorded file with a timestamp
+                        const timestamp = new Date().getTime();
+                        audioPlayer.src = `/audioPlayer?timestamp=${timestamp}`;
+                        audioPlayer.play();
+                        
+                        // Update the result content
+                        resultElement.innerHTML = `
+                            <strong>FNN Model:</strong><br>
+                            Result: ${data.result.fnn_gender}<br>
+                            <div class="probabilityBar">
+                                <div class="maleBar" style="width: ${data.result.fnn_male_prob.toFixed(2)}%"></div>
+                                <div class="femaleBar" style="width: ${data.result.fnn_female_prob.toFixed(2)}%"></div>
+                            </div><br>
+                            
+                            <strong>CNN Model:</strong><br>
+                            Result: ${data.result.cnn_gender}<br>
+                            <div class="probabilityBar">
+                                <div class="maleBar" style="width: ${data.result.cnn_male_prob.toFixed(2)}%"></div>
+                                <div class="femaleBar" style="width: ${data.result.cnn_female_prob.toFixed(2)}%"></div>
+                            </div><br>
+
+                            <strong>LSTM Model:</strong><br>
+                            Result: ${data.result.lstm_gender}<br>
+                            <div class="probabilityBar">
+                                <div class="maleBar" style="width: ${data.result.lstm_male_prob.toFixed(2)}%"></div>
+                                <div class="femaleBar" style="width: ${data.result.lstm_female_prob.toFixed(2)}%"></div>
+                            </div>
+                        `;
+                        
+                        // Replace reference paragraphs with results
+                        rightSection.innerHTML = resultElement.innerHTML;
+
+                        // Display the "Record Again" button
+                        recordAgainButton.style.display = 'block';
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error.message);
+                })
+                .finally(() => {
+                    buttonElement.style.backgroundImage = "url('/images/stop-icon.png')";
+                });
+        }
+        
+    </script>
+</body>
+</html>
+
+
